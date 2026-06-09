@@ -1,66 +1,100 @@
-import asyncio
+import nodriver as uc
 import json
+import re
 from datetime import datetime
-from playwright.async_api import async_playwright
 import time
+import asyncio
 
-async def find_ozon_position(query, sku):
-    from playwright_stealth import stealth_async  
-    
+async def find_ozon_position(query: str, sku: str):
     url = f"https://www.ozon.ru/search/?text={query}&sorting=score"
     
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=False,
-            args=['--disable-blink-features=AutomationControlled']
-        )
-        context = await browser.new_context(
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            viewport={'width': 1920, 'height': 1080},
-            locale='ru-RU',
-        )
-        page = await context.new_page()
-        await stealth_async(page)  
+    browser = await uc.start()
+    page = await browser.get(url)
+    
+    print(f"Открываю: {url}")
+    await asyncio.sleep(5)
+    
+    print("Скроллю страницу...")
+    for _ in range(8):
+        await page.scroll_down(800)
+        await asyncio.sleep(0.8)
+    
+    await asyncio.sleep(2)
+    
+    links = await page.query_selector_all('a[href*="/product/"]')
+    print(f"Найдено ссылок: {len(links)}")
+    
+    checked = 0
+    found_position = None
+    seen_skus = set()
+
+    for link in links:
+        href = link.attrs.get("href", "")
+        if not href:
+            continue
         
-        await page.goto(url, timeout=60000, wait_until='domcontentloaded')
-        await page.wait_for_timeout(4000)
+        match = re.search(r'-(\d+)/\?', href)
+        if not match:
+            continue
         
-        for _ in range(8):
-            await page.mouse.wheel(0, 800)
-            await page.wait_for_timeout(600)
+        found_sku = match.group(1)
         
-        links = await page.query_selector_all('a[href*="/product/"]')
+        if found_sku in seen_skus:
+            continue
+        seen_skus.add(found_sku)
         
-        checked = 0
-        for link in links:
-            href = await link.get_attribute('href')
-            if not href:
-                continue
-            import re
-            match = re.search(r'-i-(\d+)/', href)
-            if not match:
-                continue
-            checked += 1
-            if match.group(1) == str(sku):
-                await browser.close()
-                return {"query": query, "sku": sku, "position": checked, "page": 1, "total_checked": checked, "timestamp": datetime.now().isoformat()}
-            if checked >= 100:
-                break
+        checked += 1
         
-        await browser.close()
-        return {"query": query, "sku": sku, "position": "not_found", "page": 1, "total_checked": checked, "timestamp": datetime.now().isoformat()}
+        if found_sku == str(sku):
+            found_position = checked
+            break
+        
+        if checked >= 100:
+            break
+    
+    return {
+        "query": query,
+        "sku": str(sku),
+        "position": found_position if found_position else "not_found",
+        "page": 1,
+        "total_checked": checked,
+        "timestamp": datetime.now().isoformat()
+    }
+
 
 def main():
     test_cases = [
-        {"query": "наушники", "sku": "1403391454"},
-        {"query": "телефон", "sku": "4189905294"},
-        {"query": "ноутбук", "sku": "2561680703"}
+        {"query": "наушники", "sku": "2770320926"},
+        {"query": "телефон", "sku": "1998926953"},
+        {"query": "ноутбук", "sku": "3929614690"},
     ]
-    for i, test in enumerate(test_cases, 1):
-        result = asyncio.run(find_ozon_position(test['query'], test['sku']))
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        if i < len(test_cases):
+    
+    all_runs = []
+    
+    for run in range(1, 4):  
+        print(f"\n{'#'*40}")
+        print(f"# ПРОГОН {run}/3")
+        print(f"{'#'*40}")
+        
+        run_results = []
+        for test in test_cases:
+            print(f"\n--- {test['query']} | SKU: {test['sku']}")
+            result = uc.loop().run_until_complete(
+                find_ozon_position(test['query'], test['sku'])
+            )
+            run_results.append(result)
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        
+        all_runs.append({
+            "run": run,
+            "results": run_results
+        })
+        
+        if run < 3:
             time.sleep(30)
-
+    
+    with open('results.json', 'w', encoding='utf-8') as f:
+        json.dump(all_runs, f, indent=2, ensure_ascii=False)
+    
 if __name__ == "__main__":
     main()
