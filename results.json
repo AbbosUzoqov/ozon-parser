@@ -1,0 +1,26 @@
+[
+  {
+    "query": "наушники",
+    "sku": "1403391454",
+    "position": "not_found",
+    "page": 1,
+    "total_checked": 0,
+    "timestamp": "2026-06-09T15:52:38.476251"
+  },
+  {
+    "query": "телефон",
+    "sku": "4189905294",
+    "position": "not_found",
+    "page": 1,
+    "total_checked": 0,
+    "timestamp": "2026-06-09T15:53:42.702645"
+  },
+  {
+    "query": "ноутбук",
+    "sku": "2561680703",
+    "position": "not_found",
+    "page": 1,
+    "total_checked": 0,
+    "timestamp": "2026-06-09T15:54:44.177270"
+  }
+]
