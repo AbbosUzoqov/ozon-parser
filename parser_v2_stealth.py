@@ -5,7 +5,7 @@ from playwright.async_api import async_playwright
 import time
 
 async def find_ozon_position(query, sku):
-    from playwright_stealth import stealth_async  
+    from playwright_stealth import stealth_async  # ImportError: cannot import name 'stealth_async'
     
     url = f"https://www.ozon.ru/search/?text={query}&sorting=score"
     
@@ -20,7 +20,7 @@ async def find_ozon_position(query, sku):
             locale='ru-RU',
         )
         page = await context.new_page()
-        await stealth_async(page)  
+        await stealth_async(page)  # не работает - неправильное имя функции
         
         await page.goto(url, timeout=60000, wait_until='domcontentloaded')
         await page.wait_for_timeout(4000)
